@@ -32,27 +32,33 @@
 #include <QPainter>
 #include <QStyleOptionFrame>
 
+#include "TimeDisplayWidget.h"
+
 #include "CaptionMenu.h"
 #include "embed.h"
 #include "gui_templates.h"
 #include "MainWindow.h"
+
+#include "Engine.h"
+#include "Song.h"
+#include <stdio.h>
+#include <time.h>
+#include <thread>
 
 
 QPixmap * ComboBox::s_background = NULL;
 QPixmap * ComboBox::s_arrow = NULL;
 QPixmap * ComboBox::s_arrowSelected = NULL;
 
-const int CB_ARROW_BTN_WIDTH = 18;
+const int CB_ARROW_BTN_WIDTH = 20;
 
 
 ComboBox::ComboBox( QWidget * _parent, const QString & _name ) :
 	QWidget( _parent ),
-	IntModelView( new ComboBoxModel( NULL, QString(), true ), this ),
+	IntModelView( new ComboBoxModel( NULL, QString::null, true ), this ),
 	m_menu( this ),
 	m_pressed( false )
 {
-	setFixedHeight( ComboBox::DEFAULT_HEIGHT );
-
 	if( s_background == NULL )
 	{
 		s_background = new QPixmap( embed::getIconPixmap( "combobox_bg" ) );
@@ -85,11 +91,48 @@ ComboBox::~ComboBox()
 {
 }
 
+void ComboBox::process() {
+    Song* s = Engine::getSong();
 
+    int tick;
+    int bar;
+    int beat;
+    int bartick;
+
+    tick = s->getPlayPos().getTicks();
+
+        if (tick == 0) {
+            //
+        }
+
+        else {
+
+    while (tick != 0) {
+
+        qApp->processEvents();
+
+        bar = (int)(tick / s->ticksPerTact()) + 1;
+        beat = (tick % s->ticksPerTact()) /
+                     (s->ticksPerTact() / s->getTimeSigModel().getNumerator() ) +1;
+        bartick = (tick % s->ticksPerTact()) %
+                        (s->ticksPerTact() / s->getTimeSigModel().getNumerator());
+
+
+        tick = s->getPlayPos().getTicks();
+        if ((/*bar == 1 || bar == 2 ||*/ bar == 4 || bar == 8 || bar == 16) && beat == 4 && bartick == 47) {
+
+            break;
+        }
+
+    }
+
+  }
+}
 
 void ComboBox::selectNext()
 {
-	model()->setInitValue( model()->value() + 1 );
+    process();
+    model()->setInitValue( model()->value() + 1 );
 }
 
 
@@ -97,7 +140,8 @@ void ComboBox::selectNext()
 
 void ComboBox::selectPrevious()
 {
-	model()->setInitValue( model()->value() - 1 );
+    process();
+    model()->setInitValue( model()->value() - 1 );
 }
 
 
@@ -194,13 +238,13 @@ void ComboBox::paintEvent( QPaintEvent * _pe )
 	// Border
 	QStyleOptionFrame opt;
 	opt.initFrom( this );
-	opt.state = QStyle::StateFlag::State_None;
+	opt.state = 0;
 
 	style()->drawPrimitive( QStyle::PE_Frame, &opt, &p, this );
 
 	QPixmap * arrow = m_pressed ? s_arrowSelected : s_arrow;
 
-	p.drawPixmap( width() - CB_ARROW_BTN_WIDTH + 3, 4, *arrow );
+	p.drawPixmap( width() - CB_ARROW_BTN_WIDTH + 5, 4, *arrow );
 
 	if( model() && model()->size() > 0 )
 	{
@@ -232,7 +276,7 @@ void ComboBox::wheelEvent( QWheelEvent* event )
 {
 	if( model() )
 	{
-		model()->setInitValue(model()->value() + ((event->angleDelta().y() < 0) ? 1 : -1));
+		model()->setInitValue( model()->value() + ( ( event->delta() < 0 ) ? 1 : -1 ) );
 		update();
 		event->accept();
 	}
@@ -248,6 +292,7 @@ void ComboBox::setItem( QAction* item )
 		model()->setInitValue( item->data().toInt() );
 	}
 }
+
 
 
 
